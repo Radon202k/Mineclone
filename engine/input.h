@@ -14,12 +14,13 @@ typedef struct Mouse {
 } Mouse;
 
 typedef union Keyboard {
-    Button keys[8];
+    Button keys[9];
     struct {
         Button w;
         Button a;
         Button s;
         Button d;
+        Button space;
         Button control;
         Button alt;
         Button lshift;

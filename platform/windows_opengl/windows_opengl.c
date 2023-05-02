@@ -1,30 +1,6 @@
-#include "../../engine/engine.h"
+// thanks to https://gist.github.com/mmozeiko/ed2ad27f75edf9c26053ce332a1f6647
+
 #include "windows_opengl.h"
-
-#include "../../engine/generation.c"
-#include "../../game/game.c"
-
-#define WIN32_LEAN_AND_MEAN
-#include <windows.h>
-#include <windowsx.h>
-
-#include <GL/gl.h>
-#include "glcorearb.h"
-#include "wglext.h"
-
-#define _USE_MATH_DEFINES
-#include <math.h>
-#include <stddef.h>
-
-// replace this with your favorite Assert() implementation
-#include <intrin.h>
-#define Assert(cond) do { if (!(cond)) __debugbreak(); } while (0)
-
-#pragma comment (lib, "gdi32.lib")
-#pragma comment (lib, "user32.lib")
-#pragma comment (lib, "opengl32.lib")
-
-#include "../opengl_loader.h"
 
 static void FatalError(const char* message)
 {
@@ -87,6 +63,7 @@ static LRESULT CALLBACK WindowProc(HWND wnd, UINT msg, WPARAM wparam, LPARAM lpa
             else if (wparam == 'A')        key = &keyboard.a;
             else if (wparam == 'S')        key = &keyboard.s;
             else if (wparam == 'D')        key = &keyboard.d;
+            else if (wparam == VK_SPACE)   key = &keyboard.space;
             else if (wparam == VK_CONTROL) key = &keyboard.control;
             else if (wparam == VK_MENU)    key = &keyboard.alt;
             
@@ -102,6 +79,7 @@ static LRESULT CALLBACK WindowProc(HWND wnd, UINT msg, WPARAM wparam, LPARAM lpa
             else if (wparam == 'A')        key = &keyboard.a;
             else if (wparam == 'S')        key = &keyboard.s;
             else if (wparam == 'D')        key = &keyboard.d;
+            else if (wparam == VK_SPACE)   key = &keyboard.space;
             else if (wparam == VK_CONTROL) key = &keyboard.control;
             else if (wparam == VK_MENU)    key = &keyboard.alt;
             
@@ -354,11 +332,8 @@ int WINAPI WinMain(HINSTANCE instance, HINSTANCE previnstance, LPSTR cmdline, in
     // checkerboard texture, with 50% transparency on black colors
     GLuint texture;
     {
-        unsigned int pixels[] =
-        {
-            0x80000000, 0xffffffff,
-            0xffffffff, 0x80000000,
-        };
+        int w,h,n;
+        u8 *data = stbi_load("textures/dirt.png", &w, &h, &n, 0);
         
         glCreateTextures(GL_TEXTURE_2D, 1, &texture);
         glTextureParameteri(texture, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
@@ -366,10 +341,10 @@ int WINAPI WinMain(HINSTANCE instance, HINSTANCE previnstance, LPSTR cmdline, in
         glTextureParameteri(texture, GL_TEXTURE_WRAP_S, GL_REPEAT);
         glTextureParameteri(texture, GL_TEXTURE_WRAP_T, GL_REPEAT);
         
-        GLsizei w = 2;
-        GLsizei h = 2;
         glTextureStorage2D(texture, 1, GL_RGBA8, w, h);
-        glTextureSubImage2D(texture, 0, 0, 0, w, h, GL_RGBA, GL_UNSIGNED_BYTE, pixels);
+        glTextureSubImage2D(texture, 0, 0, 0, w, h, GL_RGBA, GL_UNSIGNED_BYTE, data);
+        
+        stbi_image_free(data);
     }
     
     // fragment & vertex shaders for drawing triangle
@@ -425,8 +400,8 @@ int WINAPI WinMain(HINSTANCE instance, HINSTANCE previnstance, LPSTR cmdline, in
     QueryPerformanceFrequency(&freq);
     QueryPerformanceCounter(&c1);
     
-    renderer.distance = 5;
-    renderer.elevation = 1;
+    renderer.orbitCamera.distance = 5;
+    renderer.orbitCamera.elevation = 1;
     
     game_construct();
     
@@ -462,6 +437,8 @@ int WINAPI WinMain(HINSTANCE instance, HINSTANCE previnstance, LPSTR cmdline, in
         renderer.dt = (float)((double)(c2.QuadPart - c1.QuadPart) / freq.QuadPart);
         c1 = c2;
         
+        game_update();
+        
         // render only if window size is non-zero
         if (width != 0 && height != 0)
         {
@@ -490,16 +467,32 @@ int WINAPI WinMain(HINSTANCE instance, HINSTANCE previnstance, LPSTR cmdline, in
                     renderer.lastMouseP = mouse.p;
                     
                     if (keyboard.lshift.down) {
-                        renderer.distance += 0.02f * deltaP.y;
+                        renderer.orbitCamera.distance += 0.02f * deltaP.y;
                     }
                     else {
-                        renderer.azimuth += 0.02f * deltaP.x;
-                        renderer.elevation += 0.02f * deltaP.y;
+                        renderer.orbitCamera.azimuth -= 0.02f * deltaP.x;
+                        renderer.orbitCamera.elevation -= 0.02f * deltaP.y;
                     }
                 }
                 
-                v3 cameraP = camera_orbit_position(renderer.distance, renderer.azimuth, renderer.elevation);
-                mat4 view = mat4_lookat(cameraP, (v3){0,0,0}, (v3){0,1,0});
+#if 0
+                v3 eye = camera_orbit_position(renderer.orbitCamera.distance,
+                                               renderer.orbitCamera.azimuth,
+                                               renderer.orbitCamera.elevation);
+                v3 worldUp = (v3){0,1,0};
+                mat4 view = mat4_lookat(eye, 
+                                        renderer.orbitCamera.target,
+                                        worldUp);
+#else 
+                Camera *cam = &game.playerCamera;
+                v3 eye = cam->p;
+                v3 center = {
+                    eye.x - sinf(deg2rad(cam->yaw)), 
+                    eye.y + tanf(deg2rad(cam->pitch)), 
+                    eye.z - cosf(deg2rad(cam->yaw))};
+                v3 up = {0,1,0};
+                mat4 view = mat4_lookat(eye, center, up); 
+#endif
                 
                 glProgramUniformMatrix4fv(vshader, 0, 1, GL_FALSE, proj.d);
                 glProgramUniformMatrix4fv(vshader, 1, 1, GL_FALSE, view.d);
@@ -611,7 +604,7 @@ renderer_chunk_htable_destruct(void) {
 
 internal u32
 renderer_chunk_hash(s32 x, s32 y, s32 z) {
-    u32 hash = x*31 + y*41 + z*59;
+    u32 hash = x*31 + y*479 + z*953;
     return hash & (narray(renderer.chunkHashTable)-1);
 }
 
@@ -641,8 +634,12 @@ renderer_chunk_htable_insert(s32 x, s32 y, s32 z, ChunkMesh *mesh) {
     GLint a_pos = 0;
     glEnableVertexAttribArray(a_pos);
     glVertexAttribPointer(a_pos, 3, GL_FLOAT, GL_FALSE, sizeof(VoxelVertex), (void*)offsetof(VoxelVertex, position));
+    /* normal */
+    GLint a_nor = 1;
+    glEnableVertexAttribArray(a_nor);
+    glVertexAttribPointer(a_nor, 3, GL_FLOAT, GL_FALSE, sizeof(VoxelVertex), (void*)offsetof(VoxelVertex, normal));
     /* texcoord */
-    GLint a_uv = 1;
+    GLint a_uv = 2;
     glEnableVertexAttribArray(a_uv);
     glVertexAttribPointer(a_uv, 2, GL_FLOAT, GL_FALSE, sizeof(VoxelVertex), (void*)offsetof(VoxelVertex, texCoord));
     /* unbind buffers */
@@ -657,3 +654,8 @@ renderer_chunk_htable_insert(s32 x, s32 y, s32 z, ChunkMesh *mesh) {
 
 internal void renderer_chunk_htable_update();
 internal void renderer_chunk_htable_remove();
+
+internal void
+platform_debug_print(char *message) {
+    OutputDebugStringA(message);
+}

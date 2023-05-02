@@ -24,7 +24,9 @@ typedef int16_t s16;
 typedef int32_t s32;
 typedef int64_t s64;
 
-#define deg2rad(degrees) ((degrees)*M_PI/180)
+#define PIf 3.14159265359f
+
+#define deg2rad(degrees) ((degrees)*PIf/180)
 
 #define narray(array) (sizeof(array)/sizeof((array)[0]))
 
@@ -35,10 +37,12 @@ typedef int64_t s64;
 #include "chunk.h"
 #include "input.h"
 #include "renderer.h"
+#include "perlin2d.h"
 #include "generation.h"
 #include "camera.h"
 
-internal u8 * platform_file_read  (char *path);
-internal void platform_file_write (char *path, u8 *contents);
+internal u8 * platform_file_read   (char *path);
+internal void platform_file_write  (char *path, u8 *contents);
+internal void platform_debug_print (char *message);
 
 #endif //ENGINE_H

@@ -8,6 +8,7 @@ typedef union v3 {
 
 internal  v3 v3_add  ( v3 a,  v3 b) { return (v3){ a.x+b.x, a.y+b.y, a.z+b.z }; }
 internal  v3 v3_sub  ( v3 a,  v3 b) { return (v3){ a.x-b.x, a.y-b.y, a.z-b.z }; }
+internal  v3 v3_neg  ( v3 a       ) { return (v3){    -a.x,    -a.y,    -a.z }; }
 internal  v3 v3_mul  (f32 k,  v3 a) { return (v3){   k*a.x,   k*a.y,   k*a.z }; }
 internal  v3 v3_div  ( v3 a, f32 d) { f32 k=1/d; return v3_mul(k,a);            }
 internal f32 v3_dot  ( v3 a,  v3 b) { return a.x*b.x + a.y*b.y + a.z*b.z;       }
