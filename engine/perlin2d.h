@@ -20,8 +20,8 @@ static int perlin2dHash[] = {208,34,231,213,32,248,233,56,161,78,24,140,71,48,14
 
 int noise2(int x, int y)
 {
-    int tmp = perlin2dHash[(y + SEED) % 256];
-    return perlin2dHash[(tmp + x) % 256];
+    int tmp = perlin2dHash[(y + SEED) & 255];
+    return perlin2dHash[(tmp + x) & 255];
 }
 
 float lin_inter(float x, float y, float s)
@@ -53,16 +53,16 @@ float perlin2d(float x, float y, float freq, int depth)
 {
     float xa = x*freq;
     float ya = y*freq;
-    float amp = 1.0;
+    float amp = 1.0f;
     float fin = 0;
-    float div = 0.0;
+    float div = 0.0f;
     
     int i;
     for(i=0; i<depth; i++)
     {
         div += 256 * amp;
         fin += noise2d(xa, ya) * amp;
-        amp /= 2;
+        amp *= 0.5f;
         xa *= 2;
         ya *= 2;
     }
