@@ -1,49 +1,19 @@
 internal void
-chunk_voxels_htable_destruct(void) {
-    for (s32 i=0; i<narray(chunkVoxelsHashTable); ++i) {
-        ChunkVoxels *at = chunkVoxelsHashTable[i];
-        while (at) {
-            ChunkVoxels *next = at->next;
-            free(at);
-            at = next;
+generate_chunk_voxels(s32 cx, s32 cy, s32 cz) {
+    u32 *voxels = malloc(CHUNK_VOXEL_COUNT*sizeof(u32));
+    memset(voxels, 0, CHUNK_VOXEL_COUNT*sizeof(u32));
+    for (s32 x=0; x<CHUNK_DIM; ++x) {
+        for (s32 z=0; z<CHUNK_DIM; ++z) {
+            f32 height = (1 + perlin2d((f32)(cx*CHUNK_DIM + x), 
+                                       (f32)(cz*CHUNK_DIM + z), 
+                                       0.1f, 8)) / 2;
+            for (s32 y=0; y<(s32)(height*CHUNK_DIM/2); ++y) {
+                voxel_set(voxels, x,y,z, 1);
+            }
         }
-    }
-}
-
-internal u32
-chunk_voxels_hash(s32 x, s32 y, s32 z) {
-    u32 hash = x*31 + y*479 + z*953;
-    return hash & (narray(chunkVoxelsHashTable)-1);
-}
-
-internal ChunkVoxels *
-chunk_voxels_htable_insert(s32 x, s32 y, s32 z, u32 *voxels) {
-    /* allocate new renderer chunk */
-    ChunkVoxels *chunk = malloc(sizeof *chunk);
-    memset(chunk, 0, sizeof *chunk);
-    chunk->x = x;
-    chunk->y = y;
-    chunk->z = z;
-    chunk->voxels = voxels;
-    /* put at head of collision chain list */
-    u32 bucket = chunk_voxels_hash(x,y,z);
-    chunk->next = chunkVoxelsHashTable[bucket];
-    chunkVoxelsHashTable[bucket] = chunk;
-    return chunk;
-}
-
-internal ChunkVoxels *
-chunk_voxels_htable_find(s32 x, s32 y, s32 z) {
-    u32 bucket = chunk_voxels_hash(x,y,z);
-    ChunkVoxels *at = chunkVoxelsHashTable[bucket];
-    while (at) {
-        if (at->x == x && at->y == y && at->z == z) {
-            return at;
-        }
-        at = at->next;
     }
     
-    return 0;
+    chunk_voxels_htable_insert(cx,cy,cz, voxels);
 }
 
 internal bool

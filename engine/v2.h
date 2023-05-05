@@ -14,4 +14,9 @@ internal f32 v2_dot  ( v2 a,  v2 b) { return a.x*b.x + a.y*b.y;        }
 internal f32 v2_len2 ( v2 a       ) { return v2_dot(a,a);              }
 internal f32 v2_len  ( v2 a       ) { return sqrtf(v2_len2(a));        }
 
+internal f32
+v2_dist(v2 a, v2 b) {
+    return v2_len(v2_sub(b, a));
+}
+
 #endif //V2_H

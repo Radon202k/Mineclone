@@ -30,11 +30,21 @@ typedef int64_t s64;
 
 #define narray(array) (sizeof(array)/sizeof((array)[0]))
 
+typedef enum FaceOrientation {
+    Face_top,
+    Face_bottom,
+    Face_left,
+    Face_right,
+    Face_front,
+    Face_back,
+} FaceOrientation;
+
 #include "v2.h"
 #include "v3.h"
 #include "v4.h"
 #include "mat4.h"
 #include "chunk.h"
+#include "voxel.h"
 #include "input.h"
 #include "renderer.h"
 #include "perlin2d.h"

@@ -4,9 +4,11 @@
 // make sure you use functions that are valid for selected GL version (specified when context is created)
 #define GL_FUNCTIONS(X) \
 X(PFNGLGENBUFFERSPROC,               glGenBuffers               ) \
+X(PFNGLDELETEBUFFERSPROC,            glDeleteBuffers            ) \
 X(PFNGLBUFFERDATAPROC,               glBufferData               ) \
 X(PFNGLNAMEDBUFFERSTORAGEPROC,       glNamedBufferStorage       ) \
 X(PFNGLBINDVERTEXARRAYPROC,          glBindVertexArray          ) \
+X(PFNGLDELETEVERTEXARRAYSPROC,       glDeleteVertexArrays       ) \
 X(PFNGLBINDBUFFERPROC,               glBindBuffer               ) \
 X(PFNGLGENVERTEXARRAYSPROC,          glGenVertexArrays          ) \
 X(PFNGLVERTEXATTRIBPOINTERPROC,      glVertexAttribPointer      ) \

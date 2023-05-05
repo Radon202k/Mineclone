@@ -5,6 +5,7 @@
 #include "../../game/game.h"
 #include "windows_opengl.h"
 
+#include "../../engine/voxel.c"
 #include "../../engine/chunk.c"
 #include "../../engine/generation.c"
 #include "../../game/game.c"

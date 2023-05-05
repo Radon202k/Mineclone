@@ -20,10 +20,14 @@ typedef struct ChunkMesh {
     u32 indexIndex;
 } ChunkMesh;
 
+struct RendererChunk;
+
+internal void renderer_chunk_free_outside    (v3 center, s32 radius);
 internal void renderer_chunk_htable_destruct (void);
 internal u32  renderer_chunk_hash            (s32 x, s32 y, s32 z);
 internal void renderer_chunk_htable_insert   (s32 x, s32 y, s32 z, ChunkMesh *mesh);
+internal bool renderer_chunk_htable_exists   (s32 x, s32 y, s32 z);
 internal void renderer_chunk_htable_update   (void);
-internal void renderer_chunk_htable_remove   (void);
+internal void renderer_chunk_htable_remove   (struct RendererChunk *chunk);
 
 #endif //RENDERER_H

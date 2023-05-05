@@ -41,4 +41,9 @@ v3_crossn(v3 a, v3 b) {
     return result;
 }
 
+internal f32
+v3_dist(v3 a, v3 b) {
+    return v3_len(v3_sub(b, a));
+}
+
 #endif //V3_H

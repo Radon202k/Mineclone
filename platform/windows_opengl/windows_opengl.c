@@ -650,10 +650,66 @@ renderer_chunk_htable_insert(s32 x, s32 y, s32 z, ChunkMesh *mesh) {
     u32 bucket = renderer_chunk_hash(x,y,z);
     chunk->next = renderer.chunkHashTable[bucket];
     renderer.chunkHashTable[bucket] = chunk;
+    free(mesh->vertices);
+    free(mesh->indices);
+    mesh->vertices = 0;
+    mesh->indices = 0;
+    mesh->indexIndex = 0;
+    mesh->vertexIndex = 0;
+}
+
+internal bool
+renderer_chunk_htable_exists(s32 x, s32 y, s32 z) {
+    u32 bucket = renderer_chunk_hash(x,y,z);
+    RendererChunk *at = renderer.chunkHashTable[bucket];
+    while (at) {
+        if (at->x == x &&
+            at->y == y &&
+            at->z == z)
+            return true;
+        at = at->next;
+    }
+    return false;
 }
 
 internal void renderer_chunk_htable_update();
-internal void renderer_chunk_htable_remove();
+
+internal void 
+renderer_chunk_htable_remove(RendererChunk *chunk) {
+    u32 bucket = renderer_chunk_hash(chunk->x, chunk->y, chunk->z);
+    if (chunk == renderer.chunkHashTable[bucket]) {
+        renderer.chunkHashTable[bucket] = chunk->next;
+    }
+    else {
+        RendererChunk *prev = 0;
+        RendererChunk *at = renderer.chunkHashTable[bucket];
+        while (at != chunk) {
+            prev = at;
+            at = at->next;
+        }
+        prev->next = chunk->next;
+    }
+    
+    glDeleteBuffers(1, &chunk->vbo);
+    glDeleteBuffers(1, &chunk->ebo);
+    glDeleteVertexArrays(1, &chunk->vao);
+    
+    free(chunk);
+}
+
+/* NOTE: Free all chunks outside a radius */
+internal void
+renderer_chunk_free_outside(v3 center, s32 radius) {
+    for (u32 i=0; i<narray(renderer.chunkHashTable); ++i) {
+        RendererChunk *chunk = renderer.chunkHashTable[i];
+        if (chunk) {
+            v3 chunkP = (v3){(f32)chunk->x,(f32)chunk->y,(f32)chunk->z,};
+            if (v3_dist(center, chunkP) > radius) {
+                renderer_chunk_htable_remove(chunk);
+            }
+        }
+    }
+}
 
 internal void
 platform_debug_print(char *message) {
