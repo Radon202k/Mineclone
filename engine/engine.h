@@ -41,8 +41,9 @@ typedef int64_t s64;
 #include "generation.h"
 #include "camera.h"
 
-internal u8 * platform_file_read   (char *path);
-internal void platform_file_write  (char *path, u8 *contents);
-internal void platform_debug_print (char *message);
+internal u8 *   platform_file_read           (char *path);
+internal void   platform_file_write          (char *path, u8 *contents);
+internal void   platform_debug_print         (char *message);
+internal char * platform_build_absolute_path (char *relativePath);
 
 #endif //ENGINE_H

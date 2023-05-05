@@ -29,31 +29,9 @@
 #pragma comment (lib, "user32.lib")
 #pragma comment (lib, "opengl32.lib")
 
-#include "../opengl_loader.h"
+#include "../opengl.h"
 
 #define STB_IMAGE_IMPLEMENTATION
 #include "w:/libs/stb_image.h"
-
-typedef struct RendererChunk {
-    s32 x, y, z; /* key */
-    u32 vao, vbo, ebo, indexCount; /* value */
-    struct RendererChunk *next;
-} RendererChunk;
-
-typedef struct Renderer {
-    f32 dt;
-    
-    Camera orbitCamera;
-    
-    v2 lastMouseP;
-    bool draggingCamera;
-    
-    RendererChunk *chunkHashTable[256];
-    
-} Renderer;
-
-global Renderer renderer;
-
-
 
 #endif //WINDOWS_OPENGL_H

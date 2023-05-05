@@ -9,8 +9,7 @@ static void FatalError(const char* message)
 }
 
 #ifndef NDEBUG
-static void APIENTRY DebugCallback(
-                                   GLenum source, GLenum type, GLuint id, GLenum severity,
+static void APIENTRY DebugCallback(GLenum source, GLenum type, GLuint id, GLenum severity,
                                    GLsizei length, const GLchar* message, const void* user)
 {
     OutputDebugStringA(message);
@@ -231,8 +230,8 @@ int WINAPI WinMain(HINSTANCE instance, HINSTANCE previnstance, LPSTR cmdline, in
     Assert(atom && "Failed to register window class");
     
     // window properties - width, height and style
-    int width = CW_USEDEFAULT;
-    int height = CW_USEDEFAULT;
+    width = CW_USEDEFAULT;
+    height = CW_USEDEFAULT;
     DWORD exstyle = WS_EX_APPWINDOW;
     DWORD style = WS_OVERLAPPEDWINDOW;
     
@@ -329,65 +328,16 @@ int WINAPI WinMain(HINSTANCE instance, HINSTANCE previnstance, LPSTR cmdline, in
 #endif
     }
     
-    // checkerboard texture, with 50% transparency on black colors
-    GLuint texture;
-    {
-        int w,h,n;
-        u8 *data = stbi_load("textures/dirt.png", &w, &h, &n, 0);
-        
-        glCreateTextures(GL_TEXTURE_2D, 1, &texture);
-        glTextureParameteri(texture, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
-        glTextureParameteri(texture, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
-        glTextureParameteri(texture, GL_TEXTURE_WRAP_S, GL_REPEAT);
-        glTextureParameteri(texture, GL_TEXTURE_WRAP_T, GL_REPEAT);
-        
-        glTextureStorage2D(texture, 1, GL_RGBA8, w, h);
-        glTextureSubImage2D(texture, 0, 0, 0, w, h, GL_RGBA, GL_UNSIGNED_BYTE, data);
-        
-        stbi_image_free(data);
-    }
+    /* load textures */
+    GLuint texture = opengl_load_textures();
     
-    // fragment & vertex shaders for drawing triangle
+    /* load shaders */
     GLuint pipeline, vshader, fshader;
-    {
-        u8 *glslVShader = platform_file_read("w:\\Mineclone\\platform\\shaders\\glsl\\voxel.vs");
-        u8 *glslFShader = platform_file_read("w:\\Mineclone\\platform\\shaders\\glsl\\voxel.fs");
-        vshader = glCreateShaderProgramv(GL_VERTEX_SHADER, 1, (const GLchar **)&glslVShader);
-        fshader = glCreateShaderProgramv(GL_FRAGMENT_SHADER, 1, (const GLchar **)&glslFShader);
-        
-        GLint linked;
-        glGetProgramiv(vshader, GL_LINK_STATUS, &linked);
-        if (!linked) {
-            char message[1024];
-            glGetProgramInfoLog(vshader, sizeof(message), NULL, message);
-            OutputDebugStringA(message);
-            Assert(!"Failed to create vertex shader!");
-        }
-        
-        glGetProgramiv(fshader, GL_LINK_STATUS, &linked);
-        if (!linked) {
-            char message[1024];
-            glGetProgramInfoLog(fshader, sizeof(message), NULL, message);
-            OutputDebugStringA(message);
-            Assert(!"Failed to create fragment shader!");
-        }
-        
-        glGenProgramPipelines(1, &pipeline);
-        glUseProgramStages(pipeline, GL_VERTEX_SHADER_BIT, vshader);
-        glUseProgramStages(pipeline, GL_FRAGMENT_SHADER_BIT, fshader);
-    }
+    opengl_shader_from_files("w:\\Mineclone\\platform\\shaders\\glsl\\voxel.vs",
+                             "w:\\Mineclone\\platform\\shaders\\glsl\\voxel.fs");
     
     // setup global GL state
-    {
-        // enable alpha blending
-        glEnable(GL_BLEND);
-        glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
-        
-        glEnable(GL_DEPTH_TEST);
-        
-        // disable culling
-        glDisable(GL_CULL_FACE);
-    }
+    opengl_setup_global_state();
     
     // set to FALSE to disable vsync
     BOOL vsync = TRUE;
@@ -399,9 +349,6 @@ int WINAPI WinMain(HINSTANCE instance, HINSTANCE previnstance, LPSTR cmdline, in
     LARGE_INTEGER freq, c1;
     QueryPerformanceFrequency(&freq);
     QueryPerformanceCounter(&c1);
-    
-    renderer.orbitCamera.distance = 5;
-    renderer.orbitCamera.elevation = 1;
     
     game_construct();
     
@@ -442,79 +389,9 @@ int WINAPI WinMain(HINSTANCE instance, HINSTANCE previnstance, LPSTR cmdline, in
         // render only if window size is non-zero
         if (width != 0 && height != 0)
         {
-            // setup output size covering all client area of window
-            glViewport(0, 0, width, height);
+            opengl_prepare_frame();
             
-            // clear screen
-            glClearColor(0.392f, 0.584f, 0.929f, 1.f);
-            glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT | GL_STENCIL_BUFFER_BIT);
-            
-            // setup rotation matrix in uniform
-            {
-                f32 aspect = (float)width / height;
-                mat4 proj = mat4_perspective((f32)deg2rad(45), aspect, 0.1f, 1000.0f);
-                
-                if (!renderer.draggingCamera && mouse.left.pressed) {
-                    renderer.draggingCamera = true;
-                    renderer.lastMouseP = mouse.p;
-                }
-                
-                if (renderer.draggingCamera && !mouse.left.down)
-                    renderer.draggingCamera = false;
-                
-                if (renderer.draggingCamera) {
-                    v2 deltaP = v2_sub(mouse.p, renderer.lastMouseP);
-                    renderer.lastMouseP = mouse.p;
-                    
-                    if (keyboard.lshift.down) {
-                        renderer.orbitCamera.distance += 0.02f * deltaP.y;
-                    }
-                    else {
-                        renderer.orbitCamera.azimuth -= 0.02f * deltaP.x;
-                        renderer.orbitCamera.elevation -= 0.02f * deltaP.y;
-                    }
-                }
-                
-#if 0
-                v3 eye = camera_orbit_position(renderer.orbitCamera.distance,
-                                               renderer.orbitCamera.azimuth,
-                                               renderer.orbitCamera.elevation);
-                v3 worldUp = (v3){0,1,0};
-                mat4 view = mat4_lookat(eye, 
-                                        renderer.orbitCamera.target,
-                                        worldUp);
-#else 
-                Camera *cam = &game.playerCamera;
-                v3 eye = cam->p;
-                v3 center = {
-                    eye.x - sinf(deg2rad(cam->yaw)), 
-                    eye.y + tanf(deg2rad(cam->pitch)), 
-                    eye.z - cosf(deg2rad(cam->yaw))};
-                v3 up = {0,1,0};
-                mat4 view = mat4_lookat(eye, center, up); 
-#endif
-                
-                glProgramUniformMatrix4fv(vshader, 0, 1, GL_FALSE, proj.d);
-                glProgramUniformMatrix4fv(vshader, 1, 1, GL_FALSE, view.d);
-            }
-            
-            // activate shaders for next draw call
-            glBindProgramPipeline(pipeline);
-            
-            for (u32 chunkIndex=0; chunkIndex<narray(renderer.chunkHashTable); ++chunkIndex){
-                RendererChunk *renderChunk = renderer.chunkHashTable[chunkIndex];
-                if (renderChunk) {
-                    /* bind buffers */
-                    glBindVertexArray(renderChunk->vao);
-                    glBindBuffer(GL_ARRAY_BUFFER, renderChunk->vbo);
-                    glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, renderChunk->ebo);
-                    /* bind texture */
-                    GLint s_texture = 0; // texture unit that sampler2D will use in GLSL code
-                    glBindTextureUnit(s_texture, texture);
-                    /* draw */
-                    glDrawElements(GL_TRIANGLES, renderChunk->indexCount, GL_UNSIGNED_INT, 0);
-                }
-            }
+            opengl_render_chunks();
             
             // swap the buffers to show output
             if (!SwapBuffers(dc))
@@ -589,71 +466,6 @@ platform_file_read(char *path) {
 internal void
 platform_file_write(char *path, u8 *contents) {
 }
-
-internal void
-renderer_chunk_htable_destruct(void) {
-    for (s32 i=0; i<narray(renderer.chunkHashTable); ++i) {
-        RendererChunk *at = renderer.chunkHashTable[i];
-        while (at) {
-            RendererChunk *next = at->next;
-            free(at);
-            at = next;
-        }
-    }
-}
-
-internal u32
-renderer_chunk_hash(s32 x, s32 y, s32 z) {
-    u32 hash = x*31 + y*479 + z*953;
-    return hash & (narray(renderer.chunkHashTable)-1);
-}
-
-internal void
-renderer_chunk_htable_insert(s32 x, s32 y, s32 z, ChunkMesh *mesh) {
-    /* allocate new renderer chunk */
-    RendererChunk *chunk = malloc(sizeof *chunk);
-    memset(chunk, 0, sizeof *chunk);
-    chunk->x = x;
-    chunk->y = y;
-    chunk->z = z;
-    chunk->indexCount = mesh->indexIndex;
-    /* vbo */
-    glGenBuffers(1, &chunk->vbo);
-    glBindBuffer(GL_ARRAY_BUFFER, chunk->vbo);
-    glBufferData(GL_ARRAY_BUFFER, mesh->vertexIndex*sizeof(VoxelVertex), mesh->vertices, GL_STATIC_DRAW);
-    /* ebo */
-    glGenBuffers(1, &chunk->ebo);
-    glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, chunk->ebo);
-    glBufferData(GL_ELEMENT_ARRAY_BUFFER, mesh->indexIndex*sizeof(u32), mesh->indices, GL_STATIC_DRAW);
-    /* vao */
-    glGenVertexArrays(1, &chunk->vao);
-    glBindVertexArray(chunk->vao);
-    /* bind vbo */
-    glBindBuffer(GL_ARRAY_BUFFER, chunk->vbo);
-    /* set up input layout, position */
-    GLint a_pos = 0;
-    glEnableVertexAttribArray(a_pos);
-    glVertexAttribPointer(a_pos, 3, GL_FLOAT, GL_FALSE, sizeof(VoxelVertex), (void*)offsetof(VoxelVertex, position));
-    /* normal */
-    GLint a_nor = 1;
-    glEnableVertexAttribArray(a_nor);
-    glVertexAttribPointer(a_nor, 3, GL_FLOAT, GL_FALSE, sizeof(VoxelVertex), (void*)offsetof(VoxelVertex, normal));
-    /* texcoord */
-    GLint a_uv = 2;
-    glEnableVertexAttribArray(a_uv);
-    glVertexAttribPointer(a_uv, 2, GL_FLOAT, GL_FALSE, sizeof(VoxelVertex), (void*)offsetof(VoxelVertex, texCoord));
-    /* unbind buffers */
-    glBindBuffer(GL_ARRAY_BUFFER, 0);
-    glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, 0);
-    glBindVertexArray(0);
-    /* put at head of collision chain list */
-    u32 bucket = renderer_chunk_hash(x,y,z);
-    chunk->next = renderer.chunkHashTable[bucket];
-    renderer.chunkHashTable[bucket] = chunk;
-}
-
-internal void renderer_chunk_htable_update();
-internal void renderer_chunk_htable_remove();
 
 internal void
 platform_debug_print(char *message) {
