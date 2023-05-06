@@ -7,7 +7,10 @@ generate_chunk_voxels(s32 cx, s32 cy, s32 cz) {
             f32 height = (1 + perlin2d((f32)(cx*CHUNK_DIM + x), 
                                        (f32)(cz*CHUNK_DIM + z), 
                                        0.1f, 8)) / 2;
-            for (s32 y=0; y<(s32)(height*CHUNK_DIM/2); ++y) {
+            
+            s32 dumbButSafeHeight = min(16, (s32)(height*CHUNK_DIM/2));
+            
+            for (s32 y=0; y<dumbButSafeHeight; ++y) {
                 voxel_set(voxels, x,y,z, 1);
             }
         }

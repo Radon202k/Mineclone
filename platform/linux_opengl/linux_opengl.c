@@ -2,8 +2,6 @@
 
 #include "linux_opengl.h"
 
-global char *globalHomeDir;
-
 static void FatalError(const char* message)
 {
     fprintf(stderr, "%s\n", message);
@@ -36,7 +34,7 @@ int main()
         fprintf(stderr, "Error: Unable to retrieve the home directory path.\n");
         return 1;
     }
-
+    
     Display* dpy = XOpenDisplay(NULL);
     if (!dpy)
     {
@@ -167,7 +165,7 @@ int main()
     
     ok = eglMakeCurrent(display, surface, surface, context);
     Assert(ok && "Failed to make context current");
-
+    
     // load OpenGL functions
 #define X(type, name) name = (type)eglGetProcAddress(#name); Assert(name);
     GL_FUNCTIONS(X)
@@ -179,17 +177,17 @@ int main()
     glEnable(GL_DEBUG_OUTPUT_SYNCHRONOUS);
 #endif
     
-
+    
     /* load textures */
     renderer.texture = opengl_load_textures();
     
     /* load shaders */
     char *voxelsVShader = 
         platform_build_absolute_path("/Desktop/Mineclone/platform/shaders/glsl/voxel.vs");
-
+    
     char *voxelsFShader = 
         platform_build_absolute_path("/Desktop/Mineclone/platform/shaders/glsl/voxel.fs");
-
+    
     opengl_shader_from_files(voxelsVShader, voxelsFShader);
     
     // setup global GL state
@@ -219,66 +217,66 @@ int main()
             switch (event.type)
             {
                 case MotionNotify:
-                    mouse.p.x = (f32)event.xmotion.x;
-                    mouse.p.y = (f32)event.xmotion.y;
-                    break;
-
+                mouse.p.x = (f32)event.xmotion.x;
+                mouse.p.y = (f32)event.xmotion.y;
+                break;
+                
                 case ButtonPress:
-                    if (event.xbutton.button == Button1) {
-                        mouse.left.down = true;
-                        mouse.left.pressed = true;
-                    }
-                    if (event.xbutton.button == Button3) {
-                        mouse.right.down = true;
-                        mouse.right.pressed = true;
-                    }
-                    break;
-
+                if (event.xbutton.button == Button1) {
+                    mouse.left.down = true;
+                    mouse.left.pressed = true;
+                }
+                if (event.xbutton.button == Button3) {
+                    mouse.right.down = true;
+                    mouse.right.pressed = true;
+                }
+                break;
+                
                 case ButtonRelease:
-                    if (event.xbutton.button == Button1) {
-                        mouse.left.down = false;
-                        mouse.left.released = true;
-                    }
-                    if (event.xbutton.button == Button3) {
-                        mouse.right.down = false;
-                        mouse.right.released = true;
-                    }
-                    break;
-
+                if (event.xbutton.button == Button1) {
+                    mouse.left.down = false;
+                    mouse.left.released = true;
+                }
+                if (event.xbutton.button == Button3) {
+                    mouse.right.down = false;
+                    mouse.right.released = true;
+                }
+                break;
+                
                 case KeyPress:
                 case KeyRelease:
-                    {
-                        KeySym keysym = XLookupKeysym(&event.xkey, 0);
-                        Button *key = 0;
-                        
-                        if      (keysym == XK_w)        key = &keyboard.w;
-                        else if (keysym == XK_a)        key = &keyboard.a;
-                        else if (keysym == XK_s)        key = &keyboard.s;
-                        else if (keysym == XK_d)        key = &keyboard.d;
-                        else if (keysym == XK_space)    key = &keyboard.space;
-                        else if (keysym == XK_Control_L || keysym == XK_Control_R) key = &keyboard.control;
-                        else if (keysym == XK_Alt_L || keysym == XK_Alt_R) key = &keyboard.alt;
-                        else if (keysym == XK_Shift_L) key = &keyboard.lshift;
-                        else if (keysym == XK_Shift_R) key = &keyboard.rshift;
-                        
-                        if (key) {
-                            key->down = (event.type == KeyPress);
-                            key->pressed = (event.type == KeyPress);
-                            key->released = (event.type == KeyRelease);
-                        }
+                {
+                    KeySym keysym = XLookupKeysym(&event.xkey, 0);
+                    Button *key = 0;
+                    
+                    if      (keysym == XK_w)        key = &keyboard.w;
+                    else if (keysym == XK_a)        key = &keyboard.a;
+                    else if (keysym == XK_s)        key = &keyboard.s;
+                    else if (keysym == XK_d)        key = &keyboard.d;
+                    else if (keysym == XK_space)    key = &keyboard.space;
+                    else if (keysym == XK_Control_L || keysym == XK_Control_R) key = &keyboard.control;
+                    else if (keysym == XK_Alt_L || keysym == XK_Alt_R) key = &keyboard.alt;
+                    else if (keysym == XK_Shift_L) key = &keyboard.lshift;
+                    else if (keysym == XK_Shift_R) key = &keyboard.rshift;
+                    
+                    if (key) {
+                        key->down = (event.type == KeyPress);
+                        key->pressed = (event.type == KeyPress);
+                        key->released = (event.type == KeyRelease);
                     }
-                    break;
-
+                }
+                break;
+                
                 case ClientMessage:
-                    if (event.xclient.message_type == WM_PROTOCOLS)
+                if (event.xclient.message_type == WM_PROTOCOLS)
+                {
+                    Atom protocol = event.xclient.data.l[0];
+                    if (protocol == WM_DELETE_WINDOW)
                     {
-                        Atom protocol = event.xclient.data.l[0];
-                        if (protocol == WM_DELETE_WINDOW)
-                        {
-                            renderer.running = false;
-                        }
+                        renderer.running = false;
                     }
-                    break;
+                }
+                break;
             }
         }
         
@@ -380,14 +378,14 @@ internal char *
 platform_build_absolute_path(char *relativePath) {
     size_t fullPathSize = strlen(globalHomeDir) + strlen(relativePath) + 1;
     char *fullPath = (char *)malloc(fullPathSize);
-
+    
     if (fullPath == NULL) {
         fprintf(stderr, "Error: Memory allocation failed.\n");
         return 0;
     }
-
+    
     strcpy(fullPath, globalHomeDir);
     strcat(fullPath, relativePath);
-
+    
     return fullPath;
 }

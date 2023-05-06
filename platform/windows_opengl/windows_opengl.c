@@ -213,6 +213,14 @@ static void GetWglFunctions(void)
 
 int WINAPI WinMain(HINSTANCE instance, HINSTANCE previnstance, LPSTR cmdline, int cmdshow)
 {
+    GetModuleFileName(NULL, exePath, MAX_PATH);
+    // Find the last backslash and truncate the string
+    exePathLastSlash = strrchr(exePath, '\\');
+    
+    if (exePathLastSlash) {
+        *exePathLastSlash = '\0';
+    }
+    
     // get WGL functions to be able to create modern GL context
     GetWglFunctions();
     
@@ -230,8 +238,8 @@ int WINAPI WinMain(HINSTANCE instance, HINSTANCE previnstance, LPSTR cmdline, in
     Assert(atom && "Failed to register window class");
     
     // window properties - width, height and style
-    width = CW_USEDEFAULT;
-    height = CW_USEDEFAULT;
+    renderer.width = (u32)CW_USEDEFAULT;
+    renderer.height = (u32)CW_USEDEFAULT;
     DWORD exstyle = WS_EX_APPWINDOW;
     DWORD style = WS_OVERLAPPEDWINDOW;
     
@@ -244,7 +252,7 @@ int WINAPI WinMain(HINSTANCE instance, HINSTANCE previnstance, LPSTR cmdline, in
     
     // create window
     HWND window = CreateWindowExW(exstyle, wc.lpszClassName, L"OpenGL Window", style,
-                                  CW_USEDEFAULT, CW_USEDEFAULT, width, height,
+                                  CW_USEDEFAULT, CW_USEDEFAULT, renderer.width, renderer.height,
                                   NULL, NULL, wc.hInstance, NULL);
     Assert(window && "Failed to create window");
     
@@ -329,12 +337,11 @@ int WINAPI WinMain(HINSTANCE instance, HINSTANCE previnstance, LPSTR cmdline, in
     }
     
     /* load textures */
-    GLuint texture = opengl_load_textures();
+    renderer.texture = opengl_load_textures();
     
     /* load shaders */
-    GLuint pipeline, vshader, fshader;
-    opengl_shader_from_files("w:\\Mineclone\\platform\\shaders\\glsl\\voxel.vs",
-                             "w:\\Mineclone\\platform\\shaders\\glsl\\voxel.fs");
+    renderer.voxelsShader = opengl_shader_from_files("w:\\Mineclone\\platform\\shaders\\glsl\\voxel.vs",
+                                                     "w:\\Mineclone\\platform\\shaders\\glsl\\voxel.fs");
     
     // setup global GL state
     opengl_setup_global_state();
@@ -376,8 +383,8 @@ int WINAPI WinMain(HINSTANCE instance, HINSTANCE previnstance, LPSTR cmdline, in
         // get current window client area size
         RECT rect;
         GetClientRect(window, &rect);
-        width = rect.right - rect.left;
-        height = rect.bottom - rect.top;
+        renderer.width = rect.right - rect.left;
+        renderer.height = rect.bottom - rect.top;
         
         LARGE_INTEGER c2;
         QueryPerformanceCounter(&c2);
@@ -387,7 +394,7 @@ int WINAPI WinMain(HINSTANCE instance, HINSTANCE previnstance, LPSTR cmdline, in
         game_update();
         
         // render only if window size is non-zero
-        if (width != 0 && height != 0)
+        if (renderer.width != 0 && renderer.height != 0)
         {
             opengl_prepare_frame();
             
@@ -470,4 +477,22 @@ platform_file_write(char *path, u8 *contents) {
 internal void
 platform_debug_print(char *message) {
     OutputDebugStringA(message);
+}
+
+internal char *
+platform_build_absolute_path(char *relativePath) {
+    size_t fullPathSize = strlen(exePath) + strlen(relativePath) + 2;
+    char *fullPath = (char *)malloc(fullPathSize);
+    
+    strcpy_s(fullPath, fullPathSize, exePath);
+    strcat_s(fullPath, fullPathSize, "\\");
+    strcat_s(fullPath, fullPathSize, relativePath);
+    
+    for (size_t i = 0; i < strlen(fullPath); i++) {
+        if (fullPath[i] == '/') {
+            fullPath[i] = '\\';
+        }
+    }
+    
+    return fullPath;
 }

@@ -68,7 +68,7 @@ chunk_voxels_htable_remove(ChunkVoxels *chunk) {
 internal void
 unload_farthest_chunks(v3 newLoadCenter, s32 newRadius) {
     /* Call platform to free chunks from gpu */
-    renderer_chunk_free_outside(newLoadCenter, newRadius);
+    renderer_free_chunks_outside_radius(newLoadCenter, newRadius);
     
     /* Free voxel chunks from the cpu */
     for (u32 i=0; i<narray(chunkVoxelsHashTable); ++i) {

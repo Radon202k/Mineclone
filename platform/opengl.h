@@ -3,44 +3,6 @@
 
 /* this file has all the cross platform opengl */
 
-#define GL_FUNCTIONS(X) \
-X(PFNGLDRAWELEMENTSPROC,             glDrawElements             ) \
-X(PFNGLCLEARCOLORPROC,               glClearColor               ) \
-X(PFNGLCLEARPROC,                    glClear                    ) \
-X(PFNGLVIEWPORTPROC,                 glViewport                 ) \
-X(PFNGLENABLEPROC,                   glEnable                   ) \
-X(PFNGLDISABLEPROC,                  glDisable                  ) \
-X(PFNGLBLENDFUNCPROC,                glBlendFunc                ) \
-X(PFNGLGENBUFFERSPROC,               glGenBuffers               ) \
-X(PFNGLBUFFERDATAPROC,               glBufferData               ) \
-X(PFNGLNAMEDBUFFERSTORAGEPROC,       glNamedBufferStorage       ) \
-X(PFNGLBINDVERTEXARRAYPROC,          glBindVertexArray          ) \
-X(PFNGLBINDBUFFERPROC,               glBindBuffer               ) \
-X(PFNGLGENVERTEXARRAYSPROC,          glGenVertexArrays          ) \
-X(PFNGLVERTEXATTRIBPOINTERPROC,      glVertexAttribPointer      ) \
-X(PFNGLENABLEVERTEXATTRIBARRAYPROC,  glEnableVertexAttribArray  ) \
-X(PFNGLCREATESHADERPROGRAMVPROC,     glCreateShaderProgramv     ) \
-X(PFNGLGETPROGRAMIVPROC,             glGetProgramiv             ) \
-X(PFNGLGETPROGRAMINFOLOGPROC,        glGetProgramInfoLog        ) \
-X(PFNGLGENPROGRAMPIPELINESPROC,      glGenProgramPipelines      ) \
-X(PFNGLUSEPROGRAMSTAGESPROC,         glUseProgramStages         ) \
-X(PFNGLBINDPROGRAMPIPELINEPROC,      glBindProgramPipeline      ) \
-X(PFNGLPROGRAMUNIFORMMATRIX2FVPROC,  glProgramUniformMatrix2fv  ) \
-X(PFNGLPROGRAMUNIFORMMATRIX4FVPROC,  glProgramUniformMatrix4fv  ) \
-X(PFNGLBINDTEXTUREUNITPROC,          glBindTextureUnit          ) \
-X(PFNGLCREATETEXTURESPROC,           glCreateTextures           ) \
-X(PFNGLTEXTUREPARAMETERIPROC,        glTextureParameteri        ) \
-X(PFNGLTEXTURESTORAGE2DPROC,         glTextureStorage2D         ) \
-X(PFNGLTEXTURESUBIMAGE2DPROC,        glTextureSubImage2D        ) \
-X(PFNGLDEBUGMESSAGECALLBACKPROC,     glDebugMessageCallback     )
-
-#define X(type, name) static type name;
-GL_FUNCTIONS(X)
-#undef X
-
-#define STR2(x) #x
-#define STR(x) STR2(x)
-
 typedef struct RendererChunk {
     s32 x, y, z; /* key */
     u32 vao, vbo, ebo, indexCount; /* value */
@@ -78,8 +40,8 @@ global Renderer renderer;
 internal GLuint
 opengl_load_textures() {
     int w,h,n;
-    char *dirtTexture = platform_build_absolute_path("/Desktop/Mineclone/bin/textures/dirt.png");
-
+    char *dirtTexture = platform_build_absolute_path("textures/dirt.png");
+    
     u8 *data = stbi_load(dirtTexture, &w, &h, &n, 0);
     if (data) {
         GLuint texture;
@@ -99,38 +61,42 @@ opengl_load_textures() {
         // TODO: make a default texture
         assert(!"Failed to load texture");
     }
+    
+    return UINT_MAX;
 }
 
-internal void
+internal Shader
 opengl_shader_from_files(char *vsPath, char *fsPath){
+    Shader result = {0};
+    
     u8 *glslVShader = platform_file_read(vsPath);
     u8 *glslFShader = platform_file_read(fsPath);
-    renderer.voxelsShader.vertex = 
-        glCreateShaderProgramv(GL_VERTEX_SHADER, 1, 
-                               (const GLchar **)&glslVShader);
-    renderer.voxelsShader.fragment = glCreateShaderProgramv(GL_FRAGMENT_SHADER, 1, 
-                                                            (const GLchar **)&glslFShader);
+    
+    result.vertex = glCreateShaderProgramv(GL_VERTEX_SHADER, 1, (const GLchar **)&glslVShader);
+    result.fragment = glCreateShaderProgramv(GL_FRAGMENT_SHADER, 1, (const GLchar **)&glslFShader);
     
     GLint linked;
-    glGetProgramiv(renderer.voxelsShader.vertex, GL_LINK_STATUS, &linked);
+    glGetProgramiv(result.vertex, GL_LINK_STATUS, &linked);
     if (!linked) {
         char message[1024];
-        glGetProgramInfoLog(renderer.voxelsShader.vertex, sizeof(message), NULL, message);
+        glGetProgramInfoLog(result.vertex, sizeof(message), NULL, message);
         platform_debug_print(message);
         Assert(!"Failed to create vertex shader!");
     }
     
-    glGetProgramiv(renderer.voxelsShader.fragment, GL_LINK_STATUS, &linked);
+    glGetProgramiv(result.fragment, GL_LINK_STATUS, &linked);
     if (!linked) {
         char message[1024];
-        glGetProgramInfoLog(renderer.voxelsShader.fragment, sizeof(message), NULL, message);
+        glGetProgramInfoLog(result.fragment, sizeof(message), NULL, message);
         platform_debug_print(message);
         Assert(!"Failed to create fragment shader!");
     }
     
-    glGenProgramPipelines(1, &renderer.voxelsShader.pipeline);
-    glUseProgramStages(renderer.voxelsShader.pipeline, GL_VERTEX_SHADER_BIT, renderer.voxelsShader.vertex);
-    glUseProgramStages(renderer.voxelsShader.pipeline, GL_FRAGMENT_SHADER_BIT, renderer.voxelsShader.fragment);
+    glGenProgramPipelines(1, &result.pipeline);
+    glUseProgramStages(result.pipeline, GL_VERTEX_SHADER_BIT, result.vertex);
+    glUseProgramStages(result.pipeline, GL_FRAGMENT_SHADER_BIT, result.fragment);
+    
+    return result;
 }
 
 internal void
@@ -246,6 +212,22 @@ renderer_chunk_hash(s32 x, s32 y, s32 z) {
     return hash & (narray(renderer.chunkHashTable)-1);
 }
 
+internal bool
+renderer_chunk_htable_exists(s32 x, s32 y, s32 z) {
+    u32 bucket = renderer_chunk_hash(x, y, z);
+    
+    RendererChunk *at = renderer.chunkHashTable[bucket];
+    while (at) {
+        if (at->x == x && at->y == y && at->z == z) {
+            return true;
+        }
+        
+        at = at->next;
+    }
+    
+    return false;
+}
+
 internal void
 renderer_chunk_htable_insert(s32 x, s32 y, s32 z, ChunkMesh *mesh) {
     /* allocate new renderer chunk */
@@ -291,6 +273,41 @@ renderer_chunk_htable_insert(s32 x, s32 y, s32 z, ChunkMesh *mesh) {
 }
 
 internal void renderer_chunk_htable_update();
-internal void renderer_chunk_htable_remove();
+
+internal void
+renderer_chunk_htable_remove(RendererChunk *chunk) {
+    u32 bucket = renderer_chunk_hash(chunk->x, chunk->y, chunk->z);
+    RendererChunk *at = renderer.chunkHashTable[bucket];
+    RendererChunk *before = 0;
+    RendererChunk *found = 0;
+    while (at) {
+        if (at->x == chunk->x && at->y == chunk->y && at->z == chunk->z) {
+            found = at;
+            break;
+        }
+        
+        before = at;
+        at = at->next;
+    }
+    
+    if (before)
+        before->next = found->next;
+    else
+        renderer.chunkHashTable[bucket] = found->next;
+    
+    /* delete VAO, VBO, and EBO */
+    glDeleteVertexArrays(1, &found->vao);
+    glDeleteBuffers(1, &found->vbo);
+    glDeleteBuffers(1, &found->ebo);
+    
+    free(found);
+}
+
+internal void
+renderer_free_chunks_outside_radius(v3 center, s32 radius) {
+    /* iterate through loaded chunks */
+    /* calculate distance from center */
+    /* if greater than radius, delete chunk */
+}
 
 #endif //OPENGL_H
