@@ -1,7 +1,7 @@
 
 internal void
 game_construct(void) {
-    game.chunkLoadingDiameter = 1;
+    game.chunkLoadingDiameter = 5;
     load_chunk(0,0,0);
     game.playerCamera.p = (v3){0,4,0};
 }
@@ -9,7 +9,7 @@ game_construct(void) {
 internal void
 game_update(void) {
     player_movement_input();
-
+    
     load_chunks_update();
 }
 
@@ -42,7 +42,7 @@ player_movement_input(void) {
     v2 deltaP = v2_sub(mouse.p, game.lastMouseP);
     game.lastMouseP = mouse.p;
     
-        game.playerCamera.yaw -= 0.2f * deltaP.x;
-
-        game.playerCamera.pitch -= 0.1f * deltaP.y;
+    game.playerCamera.yaw -= 0.2f * deltaP.x;
+    
+    game.playerCamera.pitch -= 0.1f * deltaP.y;
 }
