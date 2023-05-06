@@ -1,5 +1,7 @@
 @echo off
 
+cls
+
 IF NOT EXIST bin mkdir bin
 
 set filename=../platform/windows_opengl/windows_opengl.c

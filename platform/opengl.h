@@ -275,13 +275,13 @@ renderer_chunk_htable_insert(s32 x, s32 y, s32 z, ChunkMesh *mesh) {
 internal void renderer_chunk_htable_update();
 
 internal void
-renderer_chunk_htable_remove(RendererChunk *chunk) {
-    u32 bucket = renderer_chunk_hash(chunk->x, chunk->y, chunk->z);
+renderer_chunk_htable_remove(s32 x, s32 y, s32 z) {
+    u32 bucket = renderer_chunk_hash(x,y,z);
     RendererChunk *at = renderer.chunkHashTable[bucket];
     RendererChunk *before = 0;
     RendererChunk *found = 0;
     while (at) {
-        if (at->x == chunk->x && at->y == chunk->y && at->z == chunk->z) {
+        if (at->x == x && at->y == y && at->z == z) {
             found = at;
             break;
         }
@@ -289,25 +289,20 @@ renderer_chunk_htable_remove(RendererChunk *chunk) {
         before = at;
         at = at->next;
     }
-    
-    if (before)
-        before->next = found->next;
-    else
-        renderer.chunkHashTable[bucket] = found->next;
-    
-    /* delete VAO, VBO, and EBO */
-    glDeleteVertexArrays(1, &found->vao);
-    glDeleteBuffers(1, &found->vbo);
-    glDeleteBuffers(1, &found->ebo);
-    
-    free(found);
-}
 
-internal void
-renderer_free_chunks_outside_radius(v3 center, s32 radius) {
-    /* iterate through loaded chunks */
-    /* calculate distance from center */
-    /* if greater than radius, delete chunk */
+    if (found) {
+        if (before)
+            before->next = found->next;
+        else
+            renderer.chunkHashTable[bucket] = found->next;
+
+        /* delete VAO, VBO, and EBO */
+        glDeleteVertexArrays(1, &found->vao);
+        glDeleteBuffers(1, &found->vbo);
+        glDeleteBuffers(1, &found->ebo);
+
+        free(found);
+    }
 }
 
 #endif //OPENGL_H

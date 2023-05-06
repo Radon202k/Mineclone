@@ -1,4 +1,4 @@
-internal void
+internal u32 *
 generate_chunk_voxels(s32 cx, s32 cy, s32 cz) {
     u32 *voxels = malloc(CHUNK_VOXEL_COUNT*sizeof(u32));
     memset(voxels, 0, CHUNK_VOXEL_COUNT*sizeof(u32));
@@ -15,8 +15,7 @@ generate_chunk_voxels(s32 cx, s32 cy, s32 cz) {
             }
         }
     }
-    
-    chunk_voxels_htable_insert(cx,cy,cz, voxels);
+    return voxels;
 }
 
 internal bool

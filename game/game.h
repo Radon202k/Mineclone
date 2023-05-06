@@ -5,9 +5,11 @@ typedef struct Game {
     Camera playerCamera;
     v2 lastMouseP;
     
-    s32 chunkLoadingRadius;
-    f32 chunkLoadingMaxDistance;
-    v3 chunkLoadingCenter;
+    s32 chunkLoadingDiameter;
+
+    s32 centerChunkX;
+    s32 centerChunkY;
+    s32 centerChunkZ;
 } Game;
 
 internal void player_movement_input(void);
