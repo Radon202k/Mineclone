@@ -29,12 +29,20 @@ static LRESULT CALLBACK WindowProc(HWND wnd, UINT msg, WPARAM wparam, LPARAM lpa
 {
     switch (msg)
     {
-        case WM_MOUSEMOVE: {
-            mouse.p = (v2) {
-                (f32)GET_X_LPARAM(lparam),
-                (f32)GET_Y_LPARAM(lparam),
-            };
-        } break;
+        case WM_INPUT:
+        {
+            UINT dwSize = sizeof(RAWINPUT);
+            static RAWINPUT raw;
+            
+            GetRawInputData((HRAWINPUT)lparam, RID_INPUT, &raw, &dwSize, sizeof(RAWINPUTHEADER));
+            
+            if (raw.header.dwType == RIM_TYPEMOUSE)
+            {
+                renderer.mouseDelta.x = (f32)raw.data.mouse.lLastX;
+                renderer.mouseDelta.y = (f32)raw.data.mouse.lLastY;
+            }
+        }
+        break;
         
         case WM_LBUTTONDOWN: {
             mouse.left.down = true;
@@ -259,6 +267,17 @@ int WINAPI WinMain(HINSTANCE instance, HINSTANCE previnstance, LPSTR cmdline, in
     HDC dc = GetDC(window);
     Assert(dc && "Failed to window device context");
     
+    /* hide mouse */
+    ShowCursor(FALSE);
+    
+    /* register for mouse raw input */
+    RAWINPUTDEVICE rid;
+    rid.usUsagePage = 0x01;
+    rid.usUsage = 0x02;
+    rid.dwFlags = 0;
+    rid.hwndTarget = window;
+    RegisterRawInputDevices(&rid, 1, sizeof(rid));
+    
     // set pixel format for OpenGL context
     {
         int attrib[] =
@@ -336,12 +355,27 @@ int WINAPI WinMain(HINSTANCE instance, HINSTANCE previnstance, LPSTR cmdline, in
 #endif
     }
     
-    /* load textures */
-    renderer.texture = opengl_load_textures();
+    /* load lines shaders */
+    renderer.linesShader = opengl_shader_from_files("w:\\Mineclone\\platform\\shaders\\glsl\\line.vs",
+                                                    "w:\\Mineclone\\platform\\shaders\\glsl\\line.fs",
+                                                    0);
     
-    /* load shaders */
+    /* create lines vao an vbos */
+    renderer_lines3D_construct();
+    
+    /* construct the game (the game defines which textures to load at construct time */
+    game_construct();
+    
+    /* load textures */
+    opengl_load_textures();
+    
+    /* load voxel shaders */
     renderer.voxelsShader = opengl_shader_from_files("w:\\Mineclone\\platform\\shaders\\glsl\\voxel.vs",
-                                                     "w:\\Mineclone\\platform\\shaders\\glsl\\voxel.fs");
+                                                     "w:\\Mineclone\\platform\\shaders\\glsl\\voxel.fs",
+                                                     0); /* no geometry shader */
+    
+    renderer.sunDirectionLoc = glGetUniformLocation(renderer.voxelsShader.program, "sunDirection");
+    renderer.sunColorLoc = glGetUniformLocation(renderer.voxelsShader.program, "sunColor");
     
     // setup global GL state
     opengl_setup_global_state();
@@ -357,8 +391,6 @@ int WINAPI WinMain(HINSTANCE instance, HINSTANCE previnstance, LPSTR cmdline, in
     QueryPerformanceFrequency(&freq);
     QueryPerformanceCounter(&c1);
     
-    game_construct();
-    
     for (;;)
     {
         // process all incoming Windows messages
@@ -369,8 +401,10 @@ int WINAPI WinMain(HINSTANCE instance, HINSTANCE previnstance, LPSTR cmdline, in
             {
                 break;
             }
+            
             TranslateMessage(&msg);
             DispatchMessageW(&msg);
+            
             continue;
         }
         
@@ -396,9 +430,14 @@ int WINAPI WinMain(HINSTANCE instance, HINSTANCE previnstance, LPSTR cmdline, in
         // render only if window size is non-zero
         if (renderer.width != 0 && renderer.height != 0)
         {
+            /* prepare frame for rendering */
             opengl_prepare_frame();
             
+            /* render chunks */
             opengl_render_chunks();
+            
+            /* render lines */
+            opengl_render_lines();
             
             // swap the buffers to show output
             if (!SwapBuffers(dc))
@@ -412,6 +451,13 @@ int WINAPI WinMain(HINSTANCE instance, HINSTANCE previnstance, LPSTR cmdline, in
             for (u32 keyIndex=0; keyIndex<narray(keyboard.keys); ++keyIndex) {
                 keyboard.keys[keyIndex].pressed = false;
             }
+            
+            renderer.mouseDelta.x = 0;
+            renderer.mouseDelta.y = 0;
+            
+            POINT centerPoint = { renderer.width / 2, renderer.height / 2 };
+            ClientToScreen(window, &centerPoint);
+            SetCursorPos(centerPoint.x, centerPoint.y);
         }
         else
         {
@@ -422,6 +468,8 @@ int WINAPI WinMain(HINSTANCE instance, HINSTANCE previnstance, LPSTR cmdline, in
             }
         }
     }
+    
+    renderer_lines3D_destruct();
 }
 
 internal u8 *

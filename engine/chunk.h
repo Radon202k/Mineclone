@@ -1,8 +1,15 @@
 #ifndef CHUNK_H
 #define CHUNK_H
 
-#define CHUNK_DIM 16
-#define CHUNK_VOXEL_COUNT (CHUNK_DIM*CHUNK_DIM*CHUNK_DIM)
+#define CHUNK_DIM_X 15
+#define CHUNK_DIM_Z 15
+#define CHUNK_DIM_Y 31
+
+#define CHUNK_HALF_DIM_X CHUNK_DIM_X/2
+#define CHUNK_HALF_DIM_Y CHUNK_DIM_Y/2
+#define CHUNK_HALF_DIM_Z CHUNK_DIM_Z/2
+
+#define CHUNK_VOXEL_COUNT (CHUNK_DIM_X*CHUNK_DIM_Y*CHUNK_DIM_Z)
 
 typedef struct ChunkVoxels {
     s32 x, y, z; /* key */

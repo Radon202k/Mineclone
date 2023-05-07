@@ -16,37 +16,37 @@ typedef union Camera {
 } Camera;
 
 internal void
-camera_first_person_move_east(Camera *camera) {
-    camera->p.x -= 0.1f * cosf(deg2rad(camera->yaw));
-    camera->p.z += 0.1f * sinf(deg2rad(camera->yaw));
+camera_first_person_move_east(Camera *camera, f32 speed) {
+    camera->p.x -= speed * 0.1f * cosf(deg2rad(camera->yaw));
+    camera->p.z += speed * 0.1f * sinf(deg2rad(camera->yaw));
 }
 
 internal void
-camera_first_person_move_west(Camera *camera) {
-    camera->p.x += 0.1f * cosf(deg2rad(camera->yaw));
-    camera->p.z -= 0.1f * sinf(deg2rad(camera->yaw));
+camera_first_person_move_west(Camera *camera, f32 speed) {
+    camera->p.x += speed * 0.1f * cosf(deg2rad(camera->yaw));
+    camera->p.z -= speed * 0.1f * sinf(deg2rad(camera->yaw));
 }
 
 internal void
-camera_first_person_move_north(Camera *camera) {
-    camera->p.x -= 0.1f * sinf(deg2rad(camera->yaw));
-    camera->p.z -= 0.1f * cosf(deg2rad(camera->yaw));
+camera_first_person_move_north(Camera *camera, f32 speed) {
+    camera->p.x -= speed * 0.1f * sinf(deg2rad(camera->yaw));
+    camera->p.z -= speed * 0.1f * cosf(deg2rad(camera->yaw));
 }
 
 internal void
-camera_first_person_move_south(Camera *camera) {
-    camera->p.x += 0.1f * sinf(deg2rad(camera->yaw));
-    camera->p.z += 0.1f * cosf(deg2rad(camera->yaw));
+camera_first_person_move_south(Camera *camera, f32 speed) {
+    camera->p.x += speed * 0.1f * sinf(deg2rad(camera->yaw));
+    camera->p.z += speed * 0.1f * cosf(deg2rad(camera->yaw));
 }
 
 internal void
-camera_first_person_move_up(Camera *camera) {
-    camera->p.y += 0.1f;
+camera_first_person_move_up(Camera *camera, f32 speed) {
+    camera->p.y += speed * 0.1f;
 }
 
 internal void
-camera_first_person_move_down(Camera *camera) {
-    camera->p.y -= 0.1f;
+camera_first_person_move_down(Camera *camera, f32 speed) {
+    camera->p.y -= speed * 0.1f;
 }
 
 internal v3

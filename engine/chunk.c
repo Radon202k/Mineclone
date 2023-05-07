@@ -73,12 +73,11 @@ unload_far_away_chunks(void) {
         if (chunk) {
             /* if the chunk is too far away from new center */
             if (abs(chunk->x - game.centerChunkX) >= 0.5f*game.chunkLoadingDiameter ||
-                abs(chunk->y - game.centerChunkY) >= 0.5f*game.chunkLoadingDiameter ||
                 abs(chunk->z - game.centerChunkZ) >= 0.5f*game.chunkLoadingDiameter)
             {
                 /* remove from renderer's hash table */
                 renderer_chunk_htable_remove(chunk->x, chunk->y, chunk->z);
-
+                
                 /* remove from voxels' hash table */
                 chunk_voxels_htable_remove(chunk);
             }
@@ -88,74 +87,160 @@ unload_far_away_chunks(void) {
 
 internal void
 load_chunks_update(void) {
+    /* add axes */
+    lines3D_add(&game.lines, (v3){-1000,0,0}, (v3){1000,0,0}, (v4){1,0,0,1});
+    lines3D_add(&game.lines, (v3){0,-1000,0}, (v3){0,1000,0}, (v4){0,1,0,1});
+    lines3D_add(&game.lines, (v3){0,0,-1000}, (v3){0,0,1000}, (v4){0,0,1,1});
+    
     s32 loadRadius = (s32)ceilf(0.5f*game.chunkLoadingDiameter);
     s32 threshold = (s32)ceilf(0.5f*loadRadius);
     // Calculate the player's current chunk coordinates based on their position
-    s32 playerChunkX = (s32)game.playerCamera.p.x / CHUNK_DIM;
-    s32 playerChunkY = (s32)game.playerCamera.p.y / CHUNK_DIM;
-    s32 playerChunkZ = (s32)game.playerCamera.p.z / CHUNK_DIM;
-
+    s32 playerChunkX = (s32)game.playerCamera.p.x / CHUNK_DIM_X;
+    s32 playerChunkZ = (s32)game.playerCamera.p.z / CHUNK_DIM_Z;
+    
     // Check if the player has moved UPDATE_THRESHOLD chunks away from the center in any direction
     if (abs(playerChunkX - game.centerChunkX) >= threshold ||
-        abs(playerChunkY - game.centerChunkY) >= threshold ||
         abs(playerChunkZ - game.centerChunkZ) >= threshold )
     {
         // Set the new center to the player's current chunk coordinates
         game.centerChunkX = playerChunkX;
-        game.centerChunkY = playerChunkY;
+        game.centerChunkY = 0;
         game.centerChunkZ = playerChunkZ;
-
+        
         unload_far_away_chunks();
-
+        
         // Iterate through the chunks in the area determined by the load radius
         for (s32 x = game.centerChunkX - loadRadius;
-            x <= game.centerChunkX + loadRadius;
-            ++x)
+             x <= game.centerChunkX + loadRadius;
+             ++x)
         {
-        // TODO: multiple y chunks?
-    #if 0
-            for (s32 y = centerChunkY - loadRadius;
-                y <= centerChunkY + loadRadius;
-                ++y)
-    #else
             s32 y = 0;
-    #endif
+            for (s32 z = game.centerChunkZ - loadRadius;
+                 z <= game.centerChunkZ + loadRadius;
+                 ++z)
             {
-                for (s32 z = game.centerChunkZ - loadRadius;
-                    z <= game.centerChunkZ + loadRadius;
-                    ++z)
+                /* if the chunk is not in the generated voxels hash table */
+                ChunkVoxels *find = chunk_voxels_htable_find(x, y, z);
+                if (!find)
                 {
-                    /* if the chunk is not loaded already */
-                    ChunkVoxels *find = chunk_voxels_htable_find(x, y, z);
-                    if (!find) {
-                        /* then load it */
-                        load_chunk(x, y, z);
-                    }
+                    /* then generate it */
+                    u32* voxels = generate_chunk_voxels(x, y, z);
+                    /* insert it into the hash table */
+                    chunk_voxels_htable_insert(x, y, z, voxels);
+                }
+            }
+        }
+        
+        /* clear lines */
+        lines3D_clear(&game.lines);
+        
+        /* NOTE: We loop twice because we need all chunks generated in order
+         to know which faces of the cubes are exposed (in chunk boundaries) */
+        
+        // Iterate through the chunks in the area determined by the load radius
+        for (s32 x = game.centerChunkX - loadRadius;
+             x <= game.centerChunkX + loadRadius;
+             ++x)
+        {
+            for (s32 z = game.centerChunkZ - loadRadius;
+                 z <= game.centerChunkZ + loadRadius;
+                 ++z)
+            {
+                /* should always find the chunk since we inserted in the loop above */
+                ChunkVoxels* chunk = chunk_voxels_htable_find(x, 0, z);
+                assert(chunk);
+                
+                /* if the respective renderer chunk doesn't exist */
+                if (!renderer_chunk_htable_exists(x, 0, z))
+                {
+                    /* Generate naive mesh from the voxels (2 triangles per block's face!) */
+                    // TODO: Greedy mesh
+                    ChunkMesh mesh = generate_chunk_naive_mesh(chunk);
+                    /* upload it */
+                    renderer_chunk_htable_insert(x, 0, z, &mesh);
+                    /* destroy the mesh */
+                    free(mesh.vertices);
+                    free(mesh.indices);
+                    
+#if 0
+                    /* generate debug lines around chunk */
+                    f32 chunkMinX = (f32)(x-1)*CHUNK_DIM_X - CHUNK_HALF_DIM_X;
+                    f32 chunkMinY = (f32)-1*CHUNK_HALF_DIM_Y;
+                    f32 chunkMinZ = (f32)(z-1)*CHUNK_DIM_Z  - CHUNK_HALF_DIM_Z;
+                    f32 chunkMaxX = chunkMinX + (f32)CHUNK_DIM_X;
+                    f32 chunkMaxY = chunkMinY + (f32)CHUNK_DIM_Y;
+                    f32 chunkMaxZ = chunkMinZ + (f32)CHUNK_DIM_Z;
+                    
+                    /* vertical lines */
+                    lines3D_add(&game.lines, 
+                                (v3){chunkMinX, chunkMinY, chunkMinZ},
+                                (v3){chunkMinX, chunkMaxY, chunkMinZ},
+                                (v4){1,0,1,1});
+                    
+                    lines3D_add(&game.lines, 
+                                (v3){chunkMinX, chunkMinY, chunkMaxZ},
+                                (v3){chunkMinX, chunkMaxY, chunkMaxZ},
+                                (v4){1,0,1,1});
+                    
+                    lines3D_add(&game.lines, 
+                                (v3){chunkMaxX, chunkMinY, chunkMinZ},
+                                (v3){chunkMaxX, chunkMaxY, chunkMinZ},
+                                (v4){1,0,1,1});
+                    
+                    lines3D_add(&game.lines, 
+                                (v3){chunkMaxX, chunkMinY, chunkMaxZ},
+                                (v3){chunkMaxX, chunkMaxY, chunkMaxZ},
+                                (v4){1,0,1,1});
+                    
+                    /* horizontal lines bottom */
+                    lines3D_add(&game.lines, 
+                                (v3){chunkMinX, chunkMinY, chunkMinZ},
+                                (v3){chunkMaxX, chunkMinY, chunkMinZ},
+                                (v4){1,0,1,1});
+                    
+                    lines3D_add(&game.lines, 
+                                (v3){chunkMinX, chunkMinY, chunkMaxZ},
+                                (v3){chunkMaxX, chunkMinY, chunkMaxZ},
+                                (v4){1,0,1,1});
+                    
+                    lines3D_add(&game.lines, 
+                                (v3){chunkMinX, chunkMinY, chunkMinZ},
+                                (v3){chunkMinX, chunkMinY, chunkMaxZ},
+                                (v4){1,0,1,1});
+                    
+                    lines3D_add(&game.lines, 
+                                (v3){chunkMaxX, chunkMinY, chunkMinZ},
+                                (v3){chunkMaxX, chunkMinY, chunkMaxZ},
+                                (v4){1,0,1,1});
+                    
+                    /* horizontal lines top */
+                    lines3D_add(&game.lines, 
+                                (v3){chunkMinX, chunkMaxY, chunkMinZ},
+                                (v3){chunkMaxX, chunkMaxY, chunkMinZ},
+                                (v4){1,0,1,1});
+                    
+                    lines3D_add(&game.lines, 
+                                (v3){chunkMinX, chunkMaxY, chunkMaxZ},
+                                (v3){chunkMaxX, chunkMaxY, chunkMaxZ},
+                                (v4){1,0,1,1});
+                    
+                    lines3D_add(&game.lines, 
+                                (v3){chunkMinX, chunkMaxY, chunkMinZ},
+                                (v3){chunkMinX, chunkMaxY, chunkMaxZ},
+                                (v4){1,0,1,1});
+                    
+                    lines3D_add(&game.lines, 
+                                (v3){chunkMaxX, chunkMaxY, chunkMinZ},
+                                (v3){chunkMaxX, chunkMaxY, chunkMaxZ},
+                                (v4){1,0,1,1});
+#endif
+                    
                 }
             }
         }
     }
-}
-
-internal void
-load_chunk(s32 x, s32 y, s32 z) {
-    u32* voxels = generate_chunk_voxels(x, y, z);
-    /* insert it into the hash table */
-    chunk_voxels_htable_insert(x, y, z, voxels);
-
-    /* should always find the chunk since we inserted in the loop above */
-    ChunkVoxels* chunk = chunk_voxels_htable_find(x, y, z);
-    assert(chunk);
-
-    /* if the respective renderer chunk doesn't exist */
-    if (!renderer_chunk_htable_exists(x, y, z)) {
-        /* Generate naive mesh from the voxels (2 triangles per block's face!) */
-        // TODO: Greedy mesh
-        ChunkMesh mesh = generate_chunk_naive_mesh(chunk);
-        /* upload it */
-        renderer_chunk_htable_insert(x, 0, z, &mesh);
-        /* destroy the mesh */
-        free(mesh.vertices);
-        free(mesh.indices);
-    }
+    
+    /* update lines */
+    renderer_lines3D_update(&game.lines);
+    
 }
